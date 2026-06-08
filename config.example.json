@@ -1,3 +1,7 @@
+// Example configuration for claude-code-router.
+// Copy this file to ~/.claude-code-router/config.json (or data/config.json
+// when running in Docker with ./data mounted to /root/.claude-code-router)
+// and edit the providers, API keys, and profiles to fit your setup.
 {
   "LOG": true,
   "NON_INTERACTIVE_MODE": true,
