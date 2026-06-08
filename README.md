@@ -1,5 +1,6 @@
 # Claude Code Router - Multi-Profile Fork
 
+[![](https://img.shields.io/badge/%F0%9F%87%A8%F0%9F%87%B3-%E4%B8%AD%E6%96%87%E7%89%88-ff0000?style=flat)](README_zh.md)
 [![License](https://img.shields.io/github/license/musistudio/claude-code-router)](https://github.com/musistudio/claude-code-router/blob/main/LICENSE)
 
 > **A fork of [musistudio/claude-code-router](https://github.com/musistudio/claude-code-router)** adding **per-client model profiles** — selectable from Claude Code's native `/model` picker.
@@ -12,39 +13,49 @@ Upstream Claude Code Router lets you define one routing plan per scenario (`defa
 
 Profiles appear as models in Claude Code's built-in `/model` picker. Each Claude Code instance picks its own profile, and the router applies that profile's routing for every request.
 
-**Example — three profiles, each with different defaults:**
+**Example — four profiles using Volcengine, OpenCode Go (Zen), DeepSeek direct, and Anthropic direct:**
 
 ```
-┌─ Profile "gpt4o" ──────────────────────────────┐
-│  default:    openai, gpt-4o                     │
-│  think:      deepseek, deepseek-reasoner        │
-│  longContext:anthropic, claude-sonnet-4          │
-│  image:      openai, gpt-4o                     │
-│  background: openai, gpt-4o-mini                │
-└─────────────────────────────────────────────────┘
-
-┌─ Profile "sonnet" ──────────────────────────────┐
-│  default:    anthropic, claude-sonnet-4          │
-│  think:      deepseek, deepseek-reasoner        │
-│  longContext:anthropic, claude-sonnet-4          │
-│  image:      openai, gpt-4o                     │
-│  background: openai, gpt-4o-mini                │
-└─────────────────────────────────────────────────┘
+┌─ Profile "glm" ─────────────────────────────────┐
+│  default:    volcengine, glm-5.1                 │
+│  think:      volcengine, glm-5.1                 │
+│  longContext:opencode-go-anthropic, deepseek-v4  │
+│  image:      opencode-go, mimo-v2.5              │
+│  background: volcengine, glm-5.1                 │
+└──────────────────────────────────────────────────┘
 
 ┌─ Profile "deepseek" ────────────────────────────┐
-│  default:    deepseek, deepseek-chat            │
-│  think:      deepseek, deepseek-reasoner        │
-│  longContext:deepseek, deepseek-chat            │
-│  image:      openai, gpt-4o                     │
-│  background: deepseek, deepseek-chat            │
-└─────────────────────────────────────────────────┘
+│  default:    opencode-go-anthropic, deepseek-v4  │
+│  think:      opencode-go-anthropic, deepseek-v4  │
+│  longContext:opencode-go-anthropic, deepseek-v4  │
+│  image:      opencode-go, mimo-v2.5              │
+│  background: volcengine, glm-5.1                 │
+└──────────────────────────────────────────────────┘
+
+┌─ Profile "qwen" ────────────────────────────────┐
+│  default:    opencode-go, qwen3.7-max            │
+│  think:      opencode-go, qwen3.7-max            │
+│  longContext:opencode-go, mimo-v2.5-pro          │
+│  image:      opencode-go, qwen3.7-plus           │
+│  background: volcengine, glm-5.1                 │
+└──────────────────────────────────────────────────┘
+
+┌─ Profile "sonnet" ──────────────────────────────┐
+│  default:    anthropic, claude-sonnet-4.5         │
+│  think:      anthropic, claude-sonnet-4.5         │
+│  longContext:anthropic, claude-sonnet-4.5         │
+│  image:      opencode-go, mimo-v2.5              │
+│  background: volcengine, glm-5.1                 │
+└───────────────────────────────────────────────────┘
 ```
 
 Switch profiles in-claude with `/model claude-code/<profile-id>`:
 
 ```
-/model claude-code/sonnet    # → Sonnet profile
-/model claude-code/deepseek  # → DeepSeek profile
+/model claude-code/glm       # → GLM-5.1 profile
+/model claude-code/deepseek  # → DeepSeek V4 Pro profile
+/model claude-code/qwen      # → Qwen 3.7 profile
+/model claude-code/sonnet    # → Claude Sonnet profile
 ```
 
 ### What else is in this fork
@@ -81,7 +92,7 @@ Copy the example and edit:
 cp config.example.json ~/.claude-code-router/config.json
 ```
 
-Set your API keys as environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, etc.) or inline in `config.json`.
+Set your API keys as environment variables (`VOLCENGINE_API_KEY`, `OCGO_API_KEY`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, etc.) or inline in `config.json`.
 
 See [`config.example.json`](config.example.json) for the complete format.
 
@@ -95,7 +106,9 @@ ccr code
 Inside Claude Code, pick a profile with:
 
 ```
-/model claude-code/gpt4o
+/model claude-code/glm
+/model claude-code/sonnet
+/model claude-code/deepseek
 ```
 
 ---
