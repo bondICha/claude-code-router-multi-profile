@@ -1,13 +1,14 @@
+# syntax=docker/dockerfile:1
 # ===========================
 # 构建阶段
 # ===========================
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
 # 安装 pnpm
-RUN npm install -g pnpm@latest && \
-    rm -rf /root/.npm
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g pnpm@latest
 
 # 复制工作区配置文件
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
@@ -15,15 +16,19 @@ COPY scripts ./scripts
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/core/package.json ./packages/core/
 COPY packages/server/package.json ./packages/server/
+COPY packages/ui/package.json ./packages/ui/
 
-# 安装所有依赖（包括开发依赖）并清理
-RUN pnpm install --frozen-lockfile && \
-    pnpm store prune
+# 安装所有依赖（包括开发依赖）
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --ignore-scripts --no-frozen-lockfile && \
+    pnpm approve-builds esbuild && \
+    pnpm rebuild
 
 # 复制源代码并构建
 COPY packages/shared ./packages/shared
 COPY packages/core ./packages/core
 COPY packages/server ./packages/server
+COPY packages/ui ./packages/ui
 
 # 构建所有包
 WORKDIR /app/packages/core
@@ -36,13 +41,18 @@ WORKDIR /app/packages/server
 RUN pnpm build && \
     rm -rf node_modules/.cache
 
+WORKDIR /app/packages/ui
+RUN pnpm build && \
+    rm -rf node_modules/.cache
+
 # ===========================
 # 生产阶段
 # ===========================
-FROM node:20-alpine AS production
+FROM node:26-alpine AS production
 
 # 安装 PM2、curl 和 pm2-logrotate
-RUN apk add --no-cache curl && \
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache curl && \
     npm install -g pm2 pm2-logrotate --no-scripts && \
     pm2 install pm2-logrotate && \
     pm2 set pm2-logrotate:max_size 100M && \
@@ -60,8 +70,8 @@ COPY --from=builder /app/packages/server/node_modules ./packages/server/node_mod
 
 # 从构建阶段复制 server bundle
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
-# 复制本地预先构建的 UI 产物到同一目录
-COPY packages/ui/dist/. ./packages/server/dist/
+# 从构建阶段复制 UI 产物到同一目录
+COPY --from=builder /app/packages/ui/dist/. ./packages/server/dist/
 
 # 复制 PM2 配置文件
 COPY packages/server/ecosystem.config.cjs /app/

@@ -82,6 +82,45 @@ export const createServer = async (config: any): Promise<any> => {
     return { "input_tokens": tokenCount }
   });
 
+  // Expose selectable model "profiles" to Claude Code's gateway model discovery
+  // (CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1). The list is derived from the
+  // "Profiles" block in config.json, so adding/removing a profile is JSON-only.
+  // Each returned id is matched by data/custom-router.js to a per-profile routing
+  // set. The choice is made per Claude Code instance via its native /model picker.
+  app.get("/v1/models", async (req: any, reply: any) => {
+    const ua = req.headers["user-agent"] || "unknown";
+    console.log(`[GATEWAY-DISCOVERY] GET /v1/models - UA: ${ua}`);
+
+    const config = await readConfigFile();
+    const profiles = (config?.Profiles ?? {}) as Record<string, any>;
+    const createdAt = new Date().toISOString();
+    const capabilities = {
+      thinking: { supported: true, types: { enabled: { supported: true }, adaptive: { supported: true } } },
+      image_input: { supported: true },
+      effort: { supported: true, low: { supported: true }, medium: { supported: true }, high: { supported: true } },
+      context_management: { supported: true },
+      structured_outputs: { supported: true },
+      code_execution: { supported: true },
+      citations: { supported: true },
+      batch: { supported: false },
+    };
+    const data = Object.entries(profiles).map(([id, profile]) => ({
+      type: "model",
+      id: `claude-code/${id}`,
+      display_name: profile?.display_name ?? id,
+      created_at: createdAt,
+      capabilities,
+    }));
+    const body = {
+      data,
+      has_more: false,
+      first_id: data[0]?.id ?? null,
+      last_id: data[data.length - 1]?.id ?? null,
+    };
+    console.log(`[GATEWAY-DISCOVERY] response: ${data.length} models`);
+    return body;
+  });
+
   // Add endpoint to read config.json with access control
   app.get("/api/config", async (req: any, reply: any) => {
     return await readConfigFile();

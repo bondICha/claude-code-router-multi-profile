@@ -38,6 +38,8 @@ export async function executeCodeCommand(
   }
 
   // Build settingsFlag
+  // env (from createEnvVariables) includes CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
+  // so the /model picker lists the per-client profiles from CCR's GET /v1/models.
   let settingsFlag: ClaudeSettingsFlag = {
     env: env as ClaudeSettingsFlag['env']
   };
@@ -118,6 +120,7 @@ export async function executeCodeCommand(
     {
       env: {
         ...process.env,
+        ...env,
       },
       stdio: stdioConfig,
       shell: true,

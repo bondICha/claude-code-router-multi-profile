@@ -13,6 +13,7 @@ export const createEnvVariables = async (): Promise<Record<string, string | unde
     ANTHROPIC_AUTH_TOKEN: apiKey,
     ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`,
     NO_PROXY: "127.0.0.1",
+    CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1",
     DISABLE_TELEMETRY: "true",
     DISABLE_COST_WARNINGS: "true",
     API_TIMEOUT_MS: String(config.API_TIMEOUT_MS ?? 600000),

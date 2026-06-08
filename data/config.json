@@ -1,0 +1,111 @@
+{
+  "LOG": true,
+  "NON_INTERACTIVE_MODE": true,
+  "HOST": "0.0.0.0",
+  "APIKEY": "${CCR_API_KEY}",
+  // Optional: custom router for per-profile routing logic.
+  // When set, the custom-router.js receives every request and can read
+  // the "Profiles" block below to route based on the client's picked model.
+  // Path is the in-container path (./data is mounted to /root/.claude-code-router).
+  // "CUSTOM_ROUTER_PATH": "/root/.claude-code-router/custom-router.js",
+  "Providers": [
+    {
+      "name": "openai",
+      "api_base_url": "https://api.openai.com/v1/chat/completions",
+      "api_key": "${OPENAI_API_KEY}",
+      "models": [
+        "gpt-4o",
+        "gpt-4o-mini"
+      ],
+      "transformer": {
+        "use": ["OpenAI"]
+      }
+    },
+    {
+      "name": "anthropic",
+      "api_base_url": "https://api.anthropic.com/v1/messages",
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "models": [
+        "claude-sonnet-4-20250514"
+      ],
+      "transformer": {
+        "use": ["Anthropic"]
+      }
+    },
+    {
+      "name": "deepseek",
+      "api_base_url": "https://api.deepseek.com/chat/completions",
+      "api_key": "${DEEPSEEK_API_KEY}",
+      "models": [
+        "deepseek-chat",
+        "deepseek-reasoner"
+      ],
+      "transformer": {
+        "use": ["OpenAI"]
+      }
+    }
+  ],
+  // Engine safety fallback. All real routing lives in "Profiles" below
+  // when CUSTOM_ROUTER_PATH is set. Without a custom router, Router is
+  // used directly by the built-in routing engine.
+  "Router": {
+    "default": "openai,gpt-4o"
+  },
+  "fallback": {
+    "default": [
+      "anthropic,claude-sonnet-4-20250514",
+      "deepseek,deepseek-chat"
+    ],
+    "think": [
+      "deepseek,deepseek-reasoner",
+      "anthropic,claude-sonnet-4-20250514"
+    ],
+    "longContext": [
+      "anthropic,claude-sonnet-4-20250514"
+    ],
+    "background": [
+      "openai,gpt-4o-mini",
+      "deepseek,deepseek-chat"
+    ],
+    "image": [
+      "openai,gpt-4o"
+    ]
+  },
+  // Per-client model profiles, selectable from the Claude Code /model picker.
+  // Each key is a profile id (also exposed via GET /v1/models). When a custom
+  // router is configured, it reads these and routes EVERYTHING per profile:
+  // default / think / longContext (+ longContextThreshold) / image / background.
+  // background is matched back to the picked profile via the request's sessionId.
+  // fallback is the shared global chain (only fallback.default applies to
+  // picker-routed requests).
+  "DefaultProfile": "gpt4o",
+  "Profiles": {
+    "gpt4o": {
+      "display_name": "GPT-4o",
+      "default": "openai,gpt-4o",
+      "think": "deepseek,deepseek-reasoner",
+      "longContext": "anthropic,claude-sonnet-4-20250514",
+      "longContextThreshold": 80000,
+      "image": "openai,gpt-4o",
+      "background": "openai,gpt-4o-mini"
+    },
+    "sonnet": {
+      "display_name": "Claude Sonnet",
+      "default": "anthropic,claude-sonnet-4-20250514",
+      "think": "deepseek,deepseek-reasoner",
+      "longContext": "anthropic,claude-sonnet-4-20250514",
+      "longContextThreshold": 80000,
+      "image": "openai,gpt-4o",
+      "background": "openai,gpt-4o-mini"
+    },
+    "deepseek": {
+      "display_name": "DeepSeek",
+      "default": "deepseek,deepseek-chat",
+      "think": "deepseek,deepseek-reasoner",
+      "longContext": "deepseek,deepseek-chat",
+      "longContextThreshold": 80000,
+      "image": "openai,gpt-4o",
+      "background": "deepseek,deepseek-chat"
+    }
+  }
+}
