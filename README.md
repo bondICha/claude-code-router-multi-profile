@@ -51,7 +51,7 @@ Switch profiles in-claude with `/model claude-code/<profile-id>`:
 
 | Feature | Detail |
 |---|---|
-| **Gateway Model Discovery** | Profiles are auto-discovered by Claude Code via `GET /v1/models` (enable with `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`). |
+| **Gateway Model Discovery** | Profiles are auto-discovered by Claude Code via `GET /v1/models` (enable with `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`). Inspired by [rosetta-llm](https://github.com/Lokesh-Chimakurthi/rosetta-llm)'s `claude-code/` prefix approach for surfacing non-Anthropic models in Claude Code's picker. |
 | **Built-in fallback chains** | Each scenario can have a prioritized fallback list in the `fallback` block. |
 | **Dockerfile refresh** | Bumped to `node:26-alpine`, switched to BuildKit cache mounts for faster builds. |
 
@@ -110,6 +110,8 @@ Inside Claude Code, pick a profile with:
 ## 🙏 Credits
 
 This fork builds on [musistudio/claude-code-router](https://github.com/musistudio/claude-code-router), the upstream project. All base features — routing engine, transformers, multi-provider support, preset system, CLI, UI — come from the upstream team.
+
+The Gateway Model Discovery design (`GET /v1/models` with `claude-code/` prefix to register non-Anthropic models in Claude Code's `/model` picker) is borrowed from [Lokesh-Chimakurthi/rosetta-llm](https://github.com/Lokesh-Chimakurthi/rosetta-llm), which pioneered the pattern for its proxy.
 
 ---
 
