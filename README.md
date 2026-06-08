@@ -72,43 +72,87 @@ Everything else — multi-provider support, transformers, preset system, UI, CLI
 
 ## 🚀 Quick Start
 
-### 1. Install Claude Code
+This fork is run as a **Docker** container — it is **not** published to npm
+(the built-in profile router lives in this repo's build). You run the router in
+Docker, then point your Claude Code client at it.
+
+### 1. Get the code
 
 ```shell
-npm install -g @anthropic-ai/claude-code
+git clone https://github.com/bondICha/claude-code-router-multi-profile.git
+cd claude-code-router-multi-profile
 ```
 
-### 2. Install Claude Code Router
+### 2. Configure
 
 ```shell
-npm install -g @musistudio/claude-code-router
+mkdir -p data
+cp config.example.json data/config.json
+# edit data/config.json: providers, models, and your Profiles block
 ```
 
-### 3. Configure
-
-Copy the example and edit:
+Provide secrets via a `.env` file next to the compose context — the config
+interpolates `${VAR}` references:
 
 ```shell
-cp config.example.json ~/.claude-code-router/config.json
+# .env
+CCR_API_KEY=sk-ccr-your-secret
+VOLCENGINE_API_KEY=...
+OCGO_API_KEY=...
+DEEPSEEK_API_KEY=...
+ANTHROPIC_API_KEY=...
 ```
 
-Set your API keys as environment variables (`VOLCENGINE_API_KEY`, `OCGO_API_KEY`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, etc.) or inline in `config.json`.
+### 3. Build & run the router with Docker Compose
 
-See [`config.example.json`](config.example.json) for the complete format.
+Create a `docker-compose.yml`:
 
-### 4. Start the router and run
+```yaml
+services:
+  ccr:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    container_name: ccr
+    ports:
+      - "3456:3456"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/root/.claude-code-router
+    restart: always
+```
+
+Then:
 
 ```shell
-ccr start
-ccr code
+docker compose up -d --build
 ```
 
-Inside Claude Code, pick a profile with:
+`./data` is mounted to `/root/.claude-code-router`, so `data/config.json` is the
+live config and logs land in `data/logs/`.
+
+### 4. Point Claude Code at the router (client side)
+
+On the machine where you run Claude Code (install it with
+`npm install -g @anthropic-ai/claude-code`), set:
+
+```shell
+export ANTHROPIC_BASE_URL=http://localhost:3456      # or your server's URL
+export ANTHROPIC_AUTH_TOKEN=sk-ccr-your-secret       # = CCR_API_KEY
+export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1  # REQUIRED on the client
+claude
+```
+
+`CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` is **required on the client** — it
+is what makes Claude Code query `GET /v1/models` and list your profiles in the
+native `/model` picker. Then switch between them:
 
 ```
 /model claude-code/glm
-/model claude-code/sonnet
 /model claude-code/deepseek
+/model claude-code/qwen
+/model claude-code/sonnet
 ```
 
 ---

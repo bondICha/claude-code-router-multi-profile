@@ -72,41 +72,80 @@ Profiles 会以模型的形式出现在 Claude Code 内建的 `/model` 选择器
 
 ## 🚀 快速开始
 
-### 1. 安装 Claude Code
+本分支以 **Docker** 容器方式运行 —— **未发布到 npm**（内建的 profile 路由只存在于本仓库的构建产物中）。你在 Docker 中运行路由器，再让 Claude Code 客户端指向它。
+
+### 1. 获取代码
 
 ```shell
-npm install -g @anthropic-ai/claude-code
+git clone https://github.com/bondICha/claude-code-router-multi-profile.git
+cd claude-code-router-multi-profile
 ```
 
-### 2. 安装 Claude Code Router
+### 2. 配置
 
 ```shell
-npm install -g @musistudio/claude-code-router
+mkdir -p data
+cp config.example.json data/config.json
+# 编辑 data/config.json：providers、models，以及你的 Profiles 块
 ```
 
-### 3. 配置
-
-复制示例配置后修改：
+通过与 compose 同目录的 `.env` 文件提供密钥（配置会对 `${VAR}` 进行插值）：
 
 ```shell
-cp config.example.json ~/.claude-code-router/config.json
+# .env
+CCR_API_KEY=sk-ccr-your-secret
+VOLCENGINE_API_KEY=...
+OCGO_API_KEY=...
+DEEPSEEK_API_KEY=...
+ANTHROPIC_API_KEY=...
 ```
 
-将各家 API Key 设置为环境变量（`VOLCENGINE_API_KEY`、`OCGO_API_KEY`、`DEEPSEEK_API_KEY`、`ANTHROPIC_API_KEY` 等），或直接写在 `config.json` 中。
+### 3. 用 Docker Compose 构建并运行
 
-完整的配置格式请参考 [`config.example.json`](config.example.json)。
+创建 `docker-compose.yml`：
 
-### 4. 启动路由器并运行
+```yaml
+services:
+  ccr:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    container_name: ccr
+    ports:
+      - "3456:3456"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/root/.claude-code-router
+    restart: always
+```
+
+然后：
 
 ```shell
-ccr start
-ccr code
+docker compose up -d --build
 ```
 
-在 Claude Code 中通过以下方式选择 Profile：
+`./data` 挂载到 `/root/.claude-code-router`，因此 `data/config.json` 即为实时配置，日志写入 `data/logs/`。
+
+### 4. 让 Claude Code 指向路由器（客户端侧）
+
+在运行 Claude Code 的机器上（用 `npm install -g @anthropic-ai/claude-code` 安装），设置：
+
+```shell
+export ANTHROPIC_BASE_URL=http://localhost:3456      # 或你的服务器地址
+export ANTHROPIC_AUTH_TOKEN=sk-ccr-your-secret       # = CCR_API_KEY
+export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1  # 客户端必须设置
+claude
+```
+
+`CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` **在客户端是必须的** —— 它让 Claude Code 调用 `GET /v1/models` 并把你的 Profiles 列入原生 `/model` 选择器。然后即可切换：
 
 ```
 /model claude-code/glm
+/model claude-code/deepseek
+/model claude-code/qwen
+/model claude-code/sonnet
 ```
 
 ---
