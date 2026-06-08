@@ -244,5 +244,5 @@ ui (standalone frontend application)
 
 ## Configuration Example Locations
 
-- Main configuration example: Complete example in README.md
-- Custom router example: `custom-router.example.js`
+- Main configuration example: `config.example.json` at the repo root
+- Per-client profile routing is built in (see `packages/server/src/profileRouter.ts`); set `CUSTOM_ROUTER_PATH` only to override it with your own script
