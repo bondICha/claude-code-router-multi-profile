@@ -166,19 +166,31 @@ async function getServer(options: RunOptions = {}) {
 
   const presets = await listPresets();
 
+  const initialConfig: Record<string, any> = {
+    // ...config,
+    providers: config.Providers || config.providers,
+    HOST: HOST,
+    PORT: servicePort,
+    LOG_FILE: join(
+      homedir(),
+      ".claude-code-router",
+      "claude-code-router.log"
+    ),
+  };
+
+  // Built-in profile router: auto-enable when Profiles exist and the user
+  // hasn't supplied their own custom router. The router logic ships inside the
+  // package (built to dist/profileRouter.js next to this file), so no separate
+  // file or CUSTOM_ROUTER_PATH config is needed. The core router loads it via
+  // its existing require(CUSTOM_ROUTER_PATH) mechanism. A user-provided
+  // CUSTOM_ROUTER_PATH in config.json always takes precedence.
+  if (config.Profiles && !config.CUSTOM_ROUTER_PATH) {
+    initialConfig.CUSTOM_ROUTER_PATH = join(__dirname, "profileRouter.js");
+  }
+
   const serverInstance = await createServer({
     jsonPath: CONFIG_FILE,
-    initialConfig: {
-      // ...config,
-      providers: config.Providers || config.providers,
-      HOST: HOST,
-      PORT: servicePort,
-      LOG_FILE: join(
-        homedir(),
-        ".claude-code-router",
-        "claude-code-router.log"
-      ),
-    },
+    initialConfig,
     logger: loggerConfig,
   });
 

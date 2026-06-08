@@ -7,6 +7,11 @@ dist
 .vscode
 tsconfig.tsbuildinfo
 
+# Runtime mount dir (./data -> /root/.claude-code-router in Docker).
+# Holds the live config.json, logs and backups. The sample config lives in
+# config.example.json instead. Use `git add -f` to track anything here on purpose.
+data/
+
 # Documentation build output
 docs/build
 docs/.docusaurus

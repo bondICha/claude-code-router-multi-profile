@@ -30,6 +30,16 @@ try {
     cwd: serverDir
   });
 
+  // Build the built-in profile router as a separate, requirable CJS module.
+  // The core router loads it at runtime via require(CUSTOM_ROUTER_PATH), which
+  // index.ts auto-points at dist/profileRouter.js when Profiles are configured.
+  // --format=cjs ensures require() returns the function directly (export =).
+  console.log('Building profile router...');
+  execSync('esbuild src/profileRouter.ts --bundle --platform=node --format=cjs --outfile=dist/profileRouter.js', {
+    stdio: 'inherit',
+    cwd: serverDir
+  });
+
   // Copy the tiktoken WASM file
   console.log('Copying tiktoken WASM file...');
   const tiktokenSource = path.join(__dirname, '../packages/server/node_modules/tiktoken/tiktoken_bg.wasm');

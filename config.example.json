@@ -19,20 +19,19 @@
 //
 // Four Profiles are defined below (`glm`, `deepseek`, `qwen`, `sonnet`).
 // Each appears as `claude-code/<id>` in the Claude Code /model picker.
-// When picked, the router applies that profile's per-scenario routing
-// (default / think / longContext / image / background) for every request
-// from that client.
+// When picked, the built-in profile router applies that profile's per-scenario
+// routing (default / think / longContext / image / background) for every
+// request from that client.
+//
+// No CUSTOM_ROUTER_PATH is needed: as long as a "Profiles" block is present,
+// the router ships inside the package and is wired up automatically. To
+// override it with your own routing script, set "CUSTOM_ROUTER_PATH" and it
+// takes precedence.
 {
   "LOG": true,
   "NON_INTERACTIVE_MODE": true,
   "HOST": "0.0.0.0",
   "APIKEY": "${CCR_API_KEY}",
-
-  // Custom router that reads the Profiles block below and routes per
-  // profile. Path is the in-container path when running in Docker
-  // (./data is mounted to /root/.claude-code-router). For a local
-  // install, point this at the absolute path on your host.
-  "CUSTOM_ROUTER_PATH": "/root/.claude-code-router/custom-router.js",
 
   "Providers": [
     // ----------------------------------------------------------------
