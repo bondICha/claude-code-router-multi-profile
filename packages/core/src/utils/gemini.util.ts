@@ -347,20 +347,16 @@ export function buildRequestBody(
       }
 
       if (Array.isArray(message.tool_calls)) {
+        if (message.thinking?.signature) {
+          parts.push({ thoughtSignature: message.thinking.signature });
+        }
         parts.push(
-          ...message.tool_calls.map((toolCall, index) => {
+          ...message.tool_calls.map((toolCall) => {
             return {
               functionCall: {
-                id:
-                  toolCall.id ||
-                  `tool_${Math.random().toString(36).substring(2, 15)}`,
                 name: toolCall.function.name,
                 args: JSON.parse(toolCall.function.arguments || "{}"),
               },
-              thoughtSignature:
-                index === 0 && message.thinking?.signature
-                  ? message.thinking?.signature
-                  : undefined,
             };
           })
         );
@@ -544,7 +540,24 @@ export async function transformResponseOut(
     let thinkingContent = "";
     let thinkingSignature = "";
 
-    const parts = jsonResponse.candidates[0]?.content?.parts || [];
+    if (jsonResponse.error) {
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: jsonResponse.error.message || JSON.stringify(jsonResponse.error),
+            type: "api_error"
+          }
+        }),
+        {
+          status: response.status || 500,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    const parts = jsonResponse.candidates?.[0]?.content?.parts || [];
     const nonThinkingParts: Part[] = [];
 
     for (const part of parts) {
@@ -586,7 +599,7 @@ export async function transformResponseOut(
         {
           finish_reason:
             (
-              jsonResponse.candidates[0].finishReason as string
+              jsonResponse.candidates?.[0]?.finishReason as string
             )?.toLowerCase() || null,
           index: 0,
           message: {

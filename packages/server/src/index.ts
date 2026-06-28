@@ -418,16 +418,16 @@ async function getServer(options: RunOptions = {}) {
         return done(null, originalStream)
       }
       sessionUsageCache.put(req.sessionId, payload.usage);
-      if (typeof payload ==='object') {
+      if (typeof payload === 'object') {
         if (payload.error) {
-          return done(payload.error, null)
+          return done(null, JSON.stringify(payload.error))
         } else {
-          return done(payload, null)
+          return done(null, JSON.stringify(payload))
         }
       }
     }
-    if (typeof payload ==='object' && payload.error) {
-      return done(payload.error, null)
+    if (typeof payload === 'object' && payload !== null) {
+      return done(null, JSON.stringify(payload))
     }
     done(null, payload)
   });

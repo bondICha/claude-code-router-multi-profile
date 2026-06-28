@@ -31,16 +31,19 @@ export class VertexGeminiTransformer implements Transformer {
     const endpoint = request.stream ? "streamGenerateContent" : "generateContent";
 
     // Express mode: API key only, no project or location required.
-    // Endpoint: https://aiplatform.googleapis.com/v1/publishers/google/models/{model}:generateContent?key={key}
+    // Send key via x-goog-api-key header only (never as URL param — mixing both causes OVERLOADED_CREDENTIALS).
     const apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_CLOUD_API_KEY;
     if (apiKey) {
       return {
         body: buildRequestBody(request),
         config: {
           url: new URL(
-            `https://aiplatform.googleapis.com/v1/publishers/google/models/${request.model}:${endpoint}?key=${apiKey}`
+            `https://aiplatform.googleapis.com/v1/publishers/google/models/${request.model}:${endpoint}`
           ),
-          headers: {},
+          headers: {
+            "x-goog-api-key": apiKey,
+            "Authorization": undefined,
+          },
         },
       };
     }

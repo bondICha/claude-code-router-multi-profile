@@ -118,6 +118,7 @@ export const createServer = async (config: any): Promise<any> => {
       last_id: data[data.length - 1]?.id ?? null,
     };
     console.log(`[GATEWAY-DISCOVERY] response: ${data.length} models`);
+    reply.type("application/json");
     return body;
   });
 

@@ -72,9 +72,9 @@ export class ForceReasoningTransformer implements Transformer {
 
     if (response.headers.get("Content-Type")?.includes("application/json")) {
       const jsonResponse: any = await response.json();
-      if (jsonResponse.choices[0]?.message.content) {
+      if (jsonResponse.choices?.[0]?.message?.content) {
         const regex = /<reasoning_content>(.*?)<\/reasoning_content>/s;
-        const match = jsonResponse.choices[0]?.message.content.match(regex);
+        const match = jsonResponse.choices[0].message.content.match(regex);
         if (match && match[1]) {
           jsonResponse.thinking = {
             content: match[1],
