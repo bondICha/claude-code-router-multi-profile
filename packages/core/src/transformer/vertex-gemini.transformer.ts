@@ -6,23 +6,18 @@ import {
   transformResponseOut,
 } from "../utils/gemini.util";
 
-async function getAccessToken(): Promise<string> {
+async function getOAuthHeaders(): Promise<Record<string, string>> {
   try {
     const { GoogleAuth } = await import('google-auth-library');
-
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/cloud-platform']
     });
-
     const client = await auth.getClient();
     const accessToken = await client.getAccessToken();
-    return accessToken.token || '';
+    return { "Authorization": `Bearer ${accessToken.token || ''}` };
   } catch (error) {
     console.error('Error getting access token:', error);
-    throw new Error('Failed to get access token for Vertex AI. Please ensure you have set up authentication using one of these methods:\n' +
-      '1. Set GOOGLE_APPLICATION_CREDENTIALS to point to service account key file\n' +
-      '2. Run "gcloud auth application-default login"\n' +
-      '3. Use Google Cloud environment with default service account');
+    throw new Error('Vertex AI auth failed. Set GOOGLE_API_KEY (express mode) or GOOGLE_APPLICATION_CREDENTIALS (standard mode).');
   }
 }
 
@@ -33,6 +28,24 @@ export class VertexGeminiTransformer implements Transformer {
     request: UnifiedChatRequest,
     provider: LLMProvider
   ): Promise<Record<string, any>> {
+    const endpoint = request.stream ? "streamGenerateContent" : "generateContent";
+
+    // Express mode: API key only, no project or location required.
+    // Endpoint: https://aiplatform.googleapis.com/v1/publishers/google/models/{model}:generateContent?key={key}
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_CLOUD_API_KEY;
+    if (apiKey) {
+      return {
+        body: buildRequestBody(request),
+        config: {
+          url: new URL(
+            `https://aiplatform.googleapis.com/v1/publishers/google/models/${request.model}:${endpoint}?key=${apiKey}`
+          ),
+          headers: {},
+        },
+      };
+    }
+
+    // Standard mode: project ID + OAuth2 service account credentials.
     let projectId = process.env.GOOGLE_CLOUD_PROJECT;
     const location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 
@@ -41,30 +54,31 @@ export class VertexGeminiTransformer implements Transformer {
         const fs = await import('fs');
         const keyContent = fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8');
         const credentials = JSON.parse(keyContent);
-        if (credentials && credentials.project_id) {
+        if (credentials?.project_id) {
           projectId = credentials.project_id;
         }
       } catch (error) {
-        console.error('Error extracting project_id from GOOGLE_APPLICATION_CREDENTIALS:', error);
+        console.error('Error reading project_id from GOOGLE_APPLICATION_CREDENTIALS:', error);
       }
     }
 
     if (!projectId) {
-      throw new Error('Project ID is required for Vertex AI. Set GOOGLE_CLOUD_PROJECT environment variable or ensure project_id is in GOOGLE_APPLICATION_CREDENTIALS file.');
+      throw new Error(
+        'Vertex AI requires either GOOGLE_API_KEY (express mode) or ' +
+        'GOOGLE_CLOUD_PROJECT + GOOGLE_APPLICATION_CREDENTIALS (standard mode).'
+      );
     }
 
-    const accessToken = await getAccessToken();
+    const authHeaders = await getOAuthHeaders();
+    const base = provider.baseUrl.endsWith('/') ? provider.baseUrl : provider.baseUrl + '/';
     return {
       body: buildRequestBody(request),
       config: {
         url: new URL(
-          `./v1beta1/projects/${projectId}/locations/${location}/publishers/google/models/${request.model}:${request.stream ? "streamGenerateContent" : "generateContent"}`,
-            provider.baseUrl.endsWith('/') ? provider.baseUrl : provider.baseUrl + '/' || `https://${location}-aiplatform.googleapis.com`
+          `./v1/projects/${projectId}/locations/${location}/publishers/google/models/${request.model}:${endpoint}`,
+          base
         ),
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "x-goog-api-key": undefined,
-        },
+        headers: authHeaders,
       },
     };
   }

@@ -19,7 +19,7 @@
       "api_base_url": "https://api.moonshot.cn/v1/chat/completions",
       "api_key": "sk-",
       "models": [
-        "kimi-k2-0711-preview"
+        "kimi-k2.7-code"
       ],
       "transformer": {
         "use": [
@@ -37,7 +37,7 @@
       "api_base_url": "https://api.moonshot.cn/v1/chat/completions",
       "api_key": "sk-",
       "models": [
-        "kimi-k2-0711-preview"
+        "kimi-k2.7-code"
       ]
     },
     {
@@ -136,8 +136,17 @@
       "api_base_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
       "api_key": "sk-xxx",
       "models": [
-        "deepseek-v3-250324",
-        "deepseek-r1-250528"
+        "doubao-seed-code",
+        "doubao-seed-2.0-code",
+        "doubao-seed-2.0-pro",
+        "doubao-seed-2.0-lite",
+        "minimax-m2.7",
+        "kimi-k2.6",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash",
+        "minimax-m3",
+        "glm-5.2",
+        "kimi-k2.7-code"
       ],
       "transformer": {
         "use": [
@@ -173,7 +182,8 @@
     "background": "gemini-cli,gemini-2.5-flash",
     "think": "gemini-cli,gemini-2.5-pro",
     "longContext": "gemini-cli,gemini-2.5-pro",
-    "webSearch": "gemini-cli,gemini-2.5-flash"
+    "webSearch": "gemini-cli,gemini-2.5-flash",
+    "document": "openrouter,anthropic/claude-sonnet-4"
   },
   "NON_INTERACTIVE_MODE": false
 }

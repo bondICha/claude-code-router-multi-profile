@@ -42,6 +42,7 @@ interface ProfileConfig {
   longContext?: string;
   longContextThreshold?: number;
   image?: string;
+  document?: string;
   background?: string;
 }
 
@@ -94,6 +95,20 @@ function hasImageContent(messages: any[] | undefined): boolean {
   );
 }
 
+function hasDocumentContent(messages: any[] | undefined): boolean {
+  if (!Array.isArray(messages)) return false;
+  return messages.some(
+    (m) =>
+      Array.isArray(m.content) &&
+      m.content.some(
+        (c: any) =>
+          c.type === "document" ||
+          (Array.isArray(c.content) &&
+            c.content.some((sub: any) => sub.type === "document"))
+      )
+  );
+}
+
 async function profileRouter(
   req: RouterRequest,
   config: AppConfig
@@ -140,6 +155,11 @@ async function profileRouter(
   const profile = profiles[profileId];
   if (!profile) return null; // No profiles configured -> let the core decide.
   rememberSessionProfile(sessionId, profileId);
+
+  // Document (PDF etc.) -> profile's document-capable model.
+  if (hasDocumentContent(req.body && req.body.messages) && profile.document) {
+    return profile.document;
+  }
 
   // Image -> profile's image model (imageAgent is disabled via empty Router.image).
   if (hasImageContent(req.body && req.body.messages) && profile.image) {

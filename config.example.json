@@ -43,9 +43,17 @@
       "api_base_url": "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
       "api_key": "${VOLCENGINE_API_KEY}",
       "models": [
-        "glm-5.1",
+        "doubao-seed-code",
+        "doubao-seed-2.0-code",
+        "doubao-seed-2.0-pro",
+        "doubao-seed-2.0-lite",
+        "minimax-m2.7",
         "kimi-k2.6",
-        "deepseek-v4-pro"
+        "deepseek-v4-pro",
+        "deepseek-v4-flash",
+        "minimax-m3",
+        "glm-5.2",
+        "kimi-k2.7-code"
       ],
       "transformer": {
         "use": ["OpenAI"]
@@ -120,7 +128,7 @@
   // routing lives in "Profiles" below — this Router block only catches
   // requests that bypass the custom router (e.g. health checks).
   "Router": {
-    "default": "volcengine,glm-5.1"
+    "default": "volcengine,glm-5.2"
   },
 
   // Shared global fallback chains. When the picked provider/model fails,
@@ -141,10 +149,10 @@
     ],
     "background": [
       "opencode-go-anthropic,deepseek-v4-pro",
-      "volcengine,glm-5.1"
+      "volcengine,glm-5.2"
     ],
     "image": [
-      "volcengine,kimi-k2.6",
+      "volcengine,kimi-k2.7-code",
       "opencode-go,qwen3.7-plus"
     ]
   },
@@ -169,13 +177,14 @@
 
   "Profiles": {
     "glm": {
-      "display_name": "GLM-5.1 (Volcengine)",
-      "default":            "volcengine,glm-5.1",
-      "think":              "volcengine,glm-5.1",
+      "display_name": "GLM-5.2 (Volcengine)",
+      "default":            "volcengine,glm-5.2",
+      "think":              "volcengine,glm-5.2",
       "longContext":        "opencode-go-anthropic,deepseek-v4-pro",
       "longContextThreshold": 80000,
+      "document":           "anthropic,claude-sonnet-4-5-20250929",
       "image":              "opencode-go,mimo-v2.5",
-      "background":         "volcengine,glm-5.1"
+      "background":         "volcengine,glm-5.2"
     },
 
     "deepseek": {
@@ -184,8 +193,9 @@
       "think":              "opencode-go-anthropic,deepseek-v4-pro",
       "longContext":        "opencode-go-anthropic,deepseek-v4-pro",
       "longContextThreshold": 80000,
+      "document":           "anthropic,claude-sonnet-4-5-20250929",
       "image":              "opencode-go,mimo-v2.5",
-      "background":         "volcengine,glm-5.1"
+      "background":         "volcengine,glm-5.2"
     },
 
     "qwen": {
@@ -194,8 +204,9 @@
       "think":              "opencode-go,qwen3.7-max",
       "longContext":        "opencode-go,mimo-v2.5-pro",
       "longContextThreshold": 80000,
+      "document":           "anthropic,claude-sonnet-4-5-20250929",
       "image":              "opencode-go,qwen3.7-plus",
-      "background":         "volcengine,glm-5.1"
+      "background":         "volcengine,glm-5.2"
     },
 
     "sonnet": {
@@ -204,8 +215,9 @@
       "think":              "anthropic,claude-sonnet-4-5-20250929",
       "longContext":        "anthropic,claude-sonnet-4-5-20250929",
       "longContextThreshold": 120000,
+      "document":           "anthropic,claude-sonnet-4-5-20250929",
       "image":              "opencode-go,mimo-v2.5",
-      "background":         "volcengine,glm-5.1"
+      "background":         "volcengine,glm-5.2"
     }
   }
 }

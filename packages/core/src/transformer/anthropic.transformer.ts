@@ -105,7 +105,8 @@ export class AnthropicTransformer implements Transformer {
             const textAndMediaParts = msg.content.filter(
               (c: any) =>
                 (c.type === "text" && c.text) ||
-                (c.type === "image" && c.source)
+                (c.type === "image" && c.source) ||
+                (c.type === "document" && c.source)
             );
             if (textAndMediaParts.length) {
               messages.push({
@@ -206,6 +207,180 @@ export class AnthropicTransformer implements Transformer {
       }
     }
     return result;
+  }
+
+  async transformRequestIn(
+    request: UnifiedChatRequest,
+    provider?: LLMProvider,
+    context?: TransformerContext
+  ): Promise<Record<string, any>> {
+    const messages: any[] = [];
+    let system: any = undefined;
+
+    for (const msg of request.messages) {
+      // Extract system messages into the Anthropic "system" parameter
+      if (msg.role === "system") {
+        if (typeof msg.content === "string") {
+          system = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          const textParts = msg.content
+            .filter((c: any) => c.type === "text")
+            .map((c: any) => ({
+              type: "text",
+              text: c.text,
+              ...(c.cache_control ? { cache_control: c.cache_control } : {}),
+            }));
+          if (textParts.length) {
+            system = textParts;
+          }
+        }
+        continue;
+      }
+
+      // Handle user messages
+      if (msg.role === "user") {
+        if (typeof msg.content === "string") {
+          messages.push({ role: "user", content: msg.content });
+        } else if (Array.isArray(msg.content)) {
+          const content = msg.content.map((part: any) => {
+            if (part.type === "image_url") {
+              // Convert internal image_url format back to Anthropic image format
+              let data = part.image_url.url;
+              let media_type = part.media_type || "image/jpeg";
+
+              if (data.startsWith("data:")) {
+                const parts = data.split(";base64,");
+                if (parts.length === 2) {
+                  const extractedType = parts[0].slice(5); // remove "data:"
+                  if (extractedType && extractedType.includes("/")) {
+                    media_type = extractedType;
+                  }
+                  data = parts[1];
+                }
+              }
+
+              return {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type,
+                  data,
+                },
+              };
+            }
+            // Pass through text and tool_result content blocks
+            return part;
+          });
+          messages.push({ role: "user", content });
+        }
+        continue;
+      }
+
+      // Convert tool role back to Anthropic user + tool_result blocks
+      if (msg.role === "tool") {
+        const toolContent =
+          typeof msg.content === "string"
+            ? msg.content
+            : JSON.stringify(msg.content);
+        messages.push({
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: msg.tool_call_id,
+              content: toolContent,
+              ...(msg.cache_control ? { cache_control: msg.cache_control } : {}),
+            },
+          ],
+        });
+        continue;
+      }
+
+      // Handle assistant messages
+      if (msg.role === "assistant") {
+        const content: any[] = [];
+
+        if (msg.content && typeof msg.content === "string" && msg.content.length > 0) {
+          content.push({ type: "text", text: msg.content });
+        }
+
+        if (msg.tool_calls) {
+          for (const tc of msg.tool_calls) {
+            let input: any = {};
+            try {
+              input = JSON.parse(tc.function.arguments || "{}");
+            } catch {
+              input = { text: tc.function.arguments || "" };
+            }
+            content.push({
+              type: "tool_use",
+              id: tc.id,
+              name: tc.function.name,
+              input,
+            });
+          }
+        }
+
+        if (msg.thinking) {
+          content.push({
+            type: "thinking",
+            thinking: msg.thinking.content || "",
+            signature: msg.thinking.signature || "",
+          });
+        }
+
+        messages.push({ role: "assistant", content });
+        continue;
+      }
+    }
+
+    const body: Record<string, any> = {
+      model: request.model,
+      messages,
+      max_tokens: request.max_tokens || 4096,
+      stream: request.stream ?? true,
+    };
+
+    if (system) {
+      body.system = system;
+    }
+    if (request.temperature !== undefined) {
+      body.temperature = request.temperature;
+    }
+
+    // Convert tool_choice back to Anthropic format
+    if (request.tool_choice) {
+      if (typeof request.tool_choice === "string") {
+        body.tool_choice = { type: request.tool_choice };
+      } else if (
+        typeof request.tool_choice === "object" &&
+        request.tool_choice.type === "function"
+      ) {
+        body.tool_choice = {
+          type: "tool",
+          name: request.tool_choice.function.name,
+        };
+      }
+    }
+
+    // Convert tools back to Anthropic format
+    if (request.tools?.length) {
+      body.tools = request.tools.map((tool: any) => ({
+        name: tool.function.name,
+        description: tool.function.description,
+        input_schema: tool.function.parameters,
+      }));
+    }
+
+    // Handle thinking/reasoning
+    if (request.reasoning?.enabled) {
+      body.thinking = {
+        type: "enabled",
+        budget_tokens: request.reasoning.max_tokens || request.max_tokens || 4096,
+      };
+    }
+
+    return body;
   }
 
   async transformResponseIn(

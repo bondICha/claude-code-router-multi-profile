@@ -17,19 +17,19 @@ Profiles appear as models in Claude Code's built-in `/model` picker. Each Claude
 
 ```
 ┌─ Profile "glm" ─────────────────────────────────┐
-│  default:    volcengine, glm-5.1                 │
-│  think:      volcengine, glm-5.1                 │
-│  longContext:opencode-go-anthropic, deepseek-v4  │
+│  default:    volcengine, glm-5.2                 │
+│  think:      volcengine, glm-5.2                 │
+│  longContext:opencode-go-anthropic, deepseek-v4-pro │
 │  image:      opencode-go, mimo-v2.5              │
-│  background: volcengine, glm-5.1                 │
+│  background: volcengine, glm-5.2                 │
 └──────────────────────────────────────────────────┘
 
 ┌─ Profile "deepseek" ────────────────────────────┐
-│  default:    opencode-go-anthropic, deepseek-v4  │
-│  think:      opencode-go-anthropic, deepseek-v4  │
-│  longContext:opencode-go-anthropic, deepseek-v4  │
+│  default:    opencode-go-anthropic, deepseek-v4-pro │
+│  think:      opencode-go-anthropic, deepseek-v4-pro │
+│  longContext:opencode-go-anthropic, deepseek-v4-pro │
 │  image:      opencode-go, mimo-v2.5              │
-│  background: volcengine, glm-5.1                 │
+│  background: volcengine, glm-5.2                 │
 └──────────────────────────────────────────────────┘
 
 ┌─ Profile "qwen" ────────────────────────────────┐
@@ -37,7 +37,7 @@ Profiles appear as models in Claude Code's built-in `/model` picker. Each Claude
 │  think:      opencode-go, qwen3.7-max            │
 │  longContext:opencode-go, mimo-v2.5-pro          │
 │  image:      opencode-go, qwen3.7-plus           │
-│  background: volcengine, glm-5.1                 │
+│  background: volcengine, glm-5.2                 │
 └──────────────────────────────────────────────────┘
 
 ┌─ Profile "sonnet" ──────────────────────────────┐
@@ -45,14 +45,14 @@ Profiles appear as models in Claude Code's built-in `/model` picker. Each Claude
 │  think:      anthropic, claude-sonnet-4.5         │
 │  longContext:anthropic, claude-sonnet-4.5         │
 │  image:      opencode-go, mimo-v2.5              │
-│  background: volcengine, glm-5.1                 │
+│  background: volcengine, glm-5.2                 │
 └───────────────────────────────────────────────────┘
 ```
 
 Switch profiles in-claude with `/model claude-code/<profile-id>`:
 
 ```
-/model claude-code/glm       # → GLM-5.1 profile
+/model claude-code/glm       # → GLM-5.2 profile
 /model claude-code/deepseek  # → DeepSeek V4 Pro profile
 /model claude-code/qwen      # → Qwen 3.7 profile
 /model claude-code/sonnet    # → Claude Sonnet profile

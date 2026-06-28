@@ -317,6 +317,24 @@ export function buildRequestBody(
                 };
               }
             }
+            if (content.type === "document" && content.source) {
+              if (content.source.type === "base64") {
+                return {
+                  inlineData: {
+                    mimeType: content.source.media_type,
+                    data: content.source.data,
+                  },
+                };
+              }
+              if (content.source.type === "url") {
+                return {
+                  file_data: {
+                    mime_type: "application/pdf",
+                    file_uri: content.source.url,
+                  },
+                };
+              }
+            }
           })
         );
       } else if (message.content && typeof message.content === "object") {
