@@ -398,7 +398,18 @@ export function buildRequestBody(
 
   const generationConfig: any = {};
 
+  // Disable thinking if any prior assistant turn has tool_calls without a valid
+  // Gemini thoughtSignature (base64). Gemini rejects the whole request otherwise.
+  const hasUnsignedToolCalls = request.messages.some(
+    (m) =>
+      m.role === "assistant" &&
+      Array.isArray(m.tool_calls) &&
+      m.tool_calls.length > 0 &&
+      (!m.thinking?.signature || m.thinking.signature.startsWith("sig_"))
+  );
+
   if (
+    !hasUnsignedToolCalls &&
     request.reasoning &&
     request.reasoning.effort &&
     request.reasoning.effort !== "none"
