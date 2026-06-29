@@ -347,17 +347,18 @@ export function buildRequestBody(
       }
 
       if (Array.isArray(message.tool_calls)) {
-        if (message.thinking?.signature) {
-          parts.push({ thoughtSignature: message.thinking.signature });
-        }
         parts.push(
-          ...message.tool_calls.map((toolCall) => {
-            return {
+          ...message.tool_calls.map((toolCall, index) => {
+            const part: any = {
               functionCall: {
                 name: toolCall.function.name,
                 args: JSON.parse(toolCall.function.arguments || "{}"),
               },
             };
+            if (index === 0 && message.thinking?.signature) {
+              part.thoughtSignature = message.thinking.signature;
+            }
+            return part;
           })
         );
       }
