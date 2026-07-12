@@ -32,6 +32,14 @@ Route background tasks to a lightweight model:
 }
 ```
 
+:::warning Background handles Auto mode decisions
+
+Claude Code sends all of its Haiku-class requests through the `background` route — and that includes **Auto mode (permission) judgments**, i.e. deciding whether a tool call is safe to run without asking. If `background` points at a model that is too weak, these judgments become unreliable and Auto mode misbehaves.
+
+Choose a reasonably capable (but still fast and cheap) model here, such as `gemini-3.5-flash`. Avoid tiny local models.
+
+:::
+
 ### Thinking Mode (Plan Mode)
 
 Route thinking-intensive tasks to a more capable model:

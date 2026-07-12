@@ -33,6 +33,14 @@ sidebar_position: 3
 }
 ```
 
+:::warning background 路由承担 Auto mode 判定
+
+Claude Code 会把所有 Haiku 级别的请求发送到 `background` 路由，其中包括 **Auto mode（权限）判定**——即判断某个工具调用是否可以不经确认直接执行。如果 `background` 指向的模型能力太弱，这些判定会变得不可靠，Auto mode 的行为就会异常。
+
+请在这里选择一个能力尚可、同时速度快且便宜的模型，例如 `gemini-3.5-flash`。避免使用过小的本地模型。
+
+:::
+
 ### 思考模式（计划模式）
 
 将思考密集型任务路由到更强大的模型：

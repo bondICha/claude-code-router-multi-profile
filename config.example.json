@@ -158,6 +158,12 @@
   //
   // When a profile is picked, the custom router uses *that profile's*
   // per-scenario assignment for every request from that client.
+  //
+  // NOTE on "background": Claude Code routes all Haiku-class requests
+  // here, INCLUDING Auto mode permission judgments (whether a tool call
+  // may run without asking). A too-weak model makes Auto mode unreliable —
+  // use a reasonably capable fast model (e.g. gemini-3.5-flash), not a
+  // tiny local one.
   // ----------------------------------------------------------------
   "DefaultProfile": "glm",
 
