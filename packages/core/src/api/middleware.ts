@@ -35,5 +35,5 @@ export async function errorHandler(
     },
   };
 
-  return reply.type("application/json").code(statusCode).send(response);
+  reply.type("application/json").code(statusCode).send(response);
 }

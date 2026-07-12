@@ -87,6 +87,10 @@ async function handleTransformerEndpoint(
       }
     );
 
+    // Record which provider/model actually served this request
+    (req as any).actualProvider = providerName;
+    (req as any).actualModel = body.model;
+
     // Format and return response
     return formatResponse(finalResponse, reply, body);
   } catch (error: any) {
@@ -180,6 +184,10 @@ async function handleFallback(
       );
 
       req.log.info(`Fallback model ${fallbackModel} succeeded`);
+
+      // Record which provider/model actually served this request
+      (req as any).actualProvider = fallbackProvider;
+      (req as any).actualModel = fallbackModelName.join(',');
 
       // Format and return response
       return formatResponse(finalResponse, reply, newBody);
@@ -455,7 +463,8 @@ function formatResponse(response: any, reply: FastifyReply, body: any) {
     reply.header("Content-Type", "text/event-stream");
     reply.header("Cache-Control", "no-cache");
     reply.header("Connection", "keep-alive");
-    return reply.send(response.body);
+    reply.send(response.body);
+    return;
   } else {
     // Handle regular JSON response
     return response.json();

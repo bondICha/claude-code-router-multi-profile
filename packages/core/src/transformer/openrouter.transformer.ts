@@ -108,9 +108,11 @@ export class OpenrouterTransformer implements Transformer {
                     { usage: data.usage, hasToolCall },
                     "usage"
                   );
-                  data.choices[0].finish_reason = hasToolCall
-                    ? "tool_calls"
-                    : "stop";
+                  if (data.choices?.[0]) {
+                    data.choices[0].finish_reason = hasToolCall
+                      ? "tool_calls"
+                      : "stop";
+                  }
                 }
 
                 if (data.choices?.[0]?.finish_reason === "error") {

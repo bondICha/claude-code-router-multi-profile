@@ -1,5 +1,5 @@
 import { existsSync } from "fs";
-import { writeFile } from "fs/promises";
+import { writeFile, appendFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
 import { initConfig, initDir } from "./utils";
@@ -18,6 +18,9 @@ import { EventEmitter } from "node:events";
 import { pluginManager, tokenSpeedPlugin } from "@musistudio/llms";
 
 const event = new EventEmitter()
+
+// Per-request metrics state, keyed by req.id
+const requestMetrics = new Map<string, { startTime: number; usage?: { input_tokens: number; output_tokens: number } }>();
 
 async function initializeClaudeConfig() {
   const homeDir = homedir();
@@ -218,6 +221,9 @@ async function getServer(options: RunOptions = {}) {
     if (req.pathname.endsWith("/v1/messages") && req.pathname !== "/v1/messages") {
       req.preset = req.pathname.replace("/v1/messages", "").replace("/", "");
     }
+    if (req.pathname.endsWith("/v1/messages")) {
+      requestMetrics.set(req.id, { startTime: Date.now() });
+    }
   })
 
   serverInstance.addHook("preHandler", async (req: any, reply: any) => {
@@ -257,7 +263,7 @@ async function getServer(options: RunOptions = {}) {
     event.emit('onError', request, reply, error);
   })
   serverInstance.addHook("onSend", (req: any, reply: any, payload: any, done: any) => {
-    if (req.sessionId && req.pathname.endsWith("/v1/messages")) {
+    if (req.pathname?.endsWith("/v1/messages")) {
       if (payload instanceof ReadableStream) {
         if (req.agents) {
           const abortController = new AbortController();
@@ -389,25 +395,37 @@ async function getServer(options: RunOptions = {}) {
         const [originalStream, clonedStream] = payload.tee();
         const read = async (stream: ReadableStream) => {
           const reader = stream.getReader();
+          let buf = '';
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-              // Process the value if needed
-              const dataStr = new TextDecoder().decode(value);
-              if (!dataStr.startsWith("event: message_delta")) {
-                continue;
+              buf += new TextDecoder().decode(value);
+              // Extract all complete SSE data lines from buffer
+              const dataLineRe = /^data: (.+)$/mg;
+              let match;
+              while ((match = dataLineRe.exec(buf)) !== null) {
+                try {
+                  const parsed = JSON.parse(match[1]);
+                  // message_delta carries output_tokens usage
+                  if (parsed.type === 'message_delta' && parsed.usage) {
+                    const m = requestMetrics.get(req.id);
+                    if (m) m.usage = { input_tokens: m.usage?.input_tokens ?? 0, output_tokens: parsed.usage.output_tokens ?? 0 };
+                    if (req.sessionId) sessionUsageCache.put(req.sessionId, parsed.usage);
+                  }
+                  // message_start carries input_tokens usage
+                  if (parsed.type === 'message_start' && parsed.message?.usage) {
+                    const m = requestMetrics.get(req.id);
+                    if (m) m.usage = { input_tokens: parsed.message.usage.input_tokens ?? 0, output_tokens: m.usage?.output_tokens ?? 0 };
+                  }
+                } catch {}
               }
-              const str = dataStr.slice(27);
-              try {
-                const message = JSON.parse(str);
-                sessionUsageCache.put(req.sessionId, message.usage);
-              } catch {}
+              // Keep only the last incomplete line in buffer
+              const lastNewline = buf.lastIndexOf('\n');
+              if (lastNewline !== -1) buf = buf.slice(lastNewline + 1);
             }
           } catch (readError: any) {
-            if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
-              console.error('Background read stream closed prematurely');
-            } else {
+            if (readError.name !== 'AbortError' && readError.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
               console.error('Error in background stream reading:', readError);
             }
           } finally {
@@ -417,7 +435,9 @@ async function getServer(options: RunOptions = {}) {
         read(clonedStream);
         return done(null, originalStream)
       }
-      sessionUsageCache.put(req.sessionId, payload.usage);
+      if (req.sessionId) sessionUsageCache.put(req.sessionId, payload?.usage);
+      const m = requestMetrics.get(req.id);
+      if (m && payload?.usage) m.usage = payload.usage;
       if (typeof payload === 'object') {
         if (payload.error) {
           return done(null, JSON.stringify(payload.error))
@@ -434,6 +454,38 @@ async function getServer(options: RunOptions = {}) {
   serverInstance.addHook("onSend", async (req: any, reply: any, payload: any) => {
     event.emit('onSend', req, reply, payload);
     return payload;
+  });
+
+  serverInstance.addHook("onResponse", async (req: any, reply: any) => {
+    if (!req.pathname?.endsWith("/v1/messages")) return;
+    const provider = req.actualProvider ?? req.provider;
+    const model = req.actualModel ?? (Array.isArray(req.model) ? req.model.join(",") : req.model);
+    if (!provider || !model) return;
+
+    const m = requestMetrics.get(req.id);
+    requestMetrics.delete(req.id);
+    const usage = m?.usage;
+    const durationMs = m ? Date.now() - m.startTime : Math.round(reply.elapsedTime);
+    const outputTokens = usage?.output_tokens ?? 0;
+    const inputTokens = usage?.input_tokens ?? 0;
+    const outputToksPerSec = durationMs > 0 && outputTokens > 0
+      ? Math.round((outputTokens / durationMs) * 1000 * 10) / 10
+      : 0;
+
+    const entry = {
+      ts: new Date().toISOString(),
+      provider,
+      model,
+      status: reply.statusCode,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      duration_ms: durationMs,
+      output_tok_per_sec: outputToksPerSec,
+      fallback: req.actualProvider !== undefined && req.actualProvider !== req.provider,
+    };
+
+    const metricsPath = join(HOME_DIR, "metrics.jsonl");
+    appendFile(metricsPath, JSON.stringify(entry) + "\n").catch(() => {});
   });
 
   // Add global error handlers to prevent the service from crashing

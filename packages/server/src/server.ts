@@ -502,6 +502,147 @@ export const createServer = async (config: any): Promise<any> => {
     }
   });
 
+  app.get("/api/metrics", async (req: any, reply: any) => {
+    const metricsPath = join(HOME_DIR, "metrics.jsonl");
+    if (!existsSync(metricsPath)) {
+      return { summary: [], raw_count: 0 };
+    }
+    const lines = readFileSync(metricsPath, "utf-8")
+      .split("\n")
+      .filter(Boolean);
+
+    const buckets: Record<string, { count: number; errors: number; fallbacks: number; total_input: number; total_output: number; total_duration_ms: number; tok_per_sec_samples: number[] }> = {};
+    for (const line of lines) {
+      try {
+        const e = JSON.parse(line);
+        const key = `${e.provider},${e.model}`;
+        if (!buckets[key]) {
+          buckets[key] = { count: 0, errors: 0, fallbacks: 0, total_input: 0, total_output: 0, total_duration_ms: 0, tok_per_sec_samples: [] };
+        }
+        const b = buckets[key];
+        b.count++;
+        if (e.status >= 400) b.errors++;
+        if (e.fallback) b.fallbacks++;
+        b.total_input += e.input_tokens ?? 0;
+        b.total_output += e.output_tokens ?? 0;
+        b.total_duration_ms += e.duration_ms ?? 0;
+        if (e.output_tok_per_sec > 0) b.tok_per_sec_samples.push(e.output_tok_per_sec);
+      } catch {}
+    }
+
+    const summary = Object.entries(buckets).map(([key, b]) => {
+      const [provider, ...modelParts] = key.split(",");
+      const samples = b.tok_per_sec_samples;
+      const avg_tok_per_sec = samples.length > 0
+        ? Math.round((samples.reduce((a, c) => a + c, 0) / samples.length) * 10) / 10
+        : 0;
+      const p50_tok_per_sec = samples.length > 0
+        ? (samples.sort((a, c) => a - c)[Math.floor(samples.length * 0.5)] ?? 0)
+        : 0;
+      return {
+        provider,
+        model: modelParts.join(","),
+        count: b.count,
+        errors: b.errors,
+        fallbacks: b.fallbacks,
+        avg_input_tokens: b.count > 0 ? Math.round(b.total_input / b.count) : 0,
+        avg_output_tokens: b.count > 0 ? Math.round(b.total_output / b.count) : 0,
+        avg_duration_ms: b.count > 0 ? Math.round(b.total_duration_ms / b.count) : 0,
+        avg_output_tok_per_sec: avg_tok_per_sec,
+        p50_output_tok_per_sec: Math.round(p50_tok_per_sec * 10) / 10,
+      };
+    }).sort((a, b) => b.count - a.count);
+
+    return { summary, raw_count: lines.length };
+  });
+
+  app.delete("/api/metrics", async (req: any, reply: any) => {
+    const metricsPath = join(HOME_DIR, "metrics.jsonl");
+    if (existsSync(metricsPath)) {
+      writeFileSync(metricsPath, "");
+    }
+    return { success: true };
+  });
+
+  app.get("/metrics", async (req: any, reply: any) => {
+    const metricsPath = join(HOME_DIR, "metrics.jsonl");
+    const buckets: Record<string, {
+      requests_total: number; errors_total: number; fallbacks_total: number;
+      input_tokens_total: number; output_tokens_total: number;
+      duration_ms_total: number; tok_per_sec_sum: number; tok_per_sec_count: number;
+      duration_buckets: number[];
+    }> = {};
+    const DURATION_BOUNDS = [500, 1000, 2000, 5000, 10000, 30000, 60000];
+
+    if (existsSync(metricsPath)) {
+      const lines = readFileSync(metricsPath, "utf-8").split("\n").filter(Boolean);
+      for (const line of lines) {
+        try {
+          const e = JSON.parse(line);
+          const key = `provider="${e.provider}",model="${e.model}"`;
+          if (!buckets[key]) {
+            buckets[key] = { requests_total: 0, errors_total: 0, fallbacks_total: 0, input_tokens_total: 0, output_tokens_total: 0, duration_ms_total: 0, tok_per_sec_sum: 0, tok_per_sec_count: 0, duration_buckets: new Array(DURATION_BOUNDS.length + 1).fill(0) };
+          }
+          const b = buckets[key];
+          b.requests_total++;
+          if (e.status >= 400) b.errors_total++;
+          if (e.fallback) b.fallbacks_total++;
+          b.input_tokens_total += e.input_tokens ?? 0;
+          b.output_tokens_total += e.output_tokens ?? 0;
+          b.duration_ms_total += e.duration_ms ?? 0;
+          if (e.output_tok_per_sec > 0) { b.tok_per_sec_sum += e.output_tok_per_sec; b.tok_per_sec_count++; }
+          const d = e.duration_ms ?? 0;
+          for (let i = 0; i < DURATION_BOUNDS.length; i++) { if (d <= DURATION_BOUNDS[i]) b.duration_buckets[i]++; }
+          b.duration_buckets[DURATION_BOUNDS.length]++;
+        } catch {}
+      }
+    }
+
+    const lines: string[] = [];
+    const push = (s: string) => lines.push(s);
+
+    push('# HELP ccr_requests_total Total LLM requests routed');
+    push('# TYPE ccr_requests_total counter');
+    for (const [labels, b] of Object.entries(buckets)) push(`ccr_requests_total{${labels}} ${b.requests_total}`);
+
+    push('# HELP ccr_errors_total Requests that returned an error status');
+    push('# TYPE ccr_errors_total counter');
+    for (const [labels, b] of Object.entries(buckets)) push(`ccr_errors_total{${labels}} ${b.errors_total}`);
+
+    push('# HELP ccr_fallbacks_total Requests served by a fallback model');
+    push('# TYPE ccr_fallbacks_total counter');
+    for (const [labels, b] of Object.entries(buckets)) push(`ccr_fallbacks_total{${labels}} ${b.fallbacks_total}`);
+
+    push('# HELP ccr_input_tokens_total Total input tokens sent to provider');
+    push('# TYPE ccr_input_tokens_total counter');
+    for (const [labels, b] of Object.entries(buckets)) push(`ccr_input_tokens_total{${labels}} ${b.input_tokens_total}`);
+
+    push('# HELP ccr_output_tokens_total Total output tokens received from provider');
+    push('# TYPE ccr_output_tokens_total counter');
+    for (const [labels, b] of Object.entries(buckets)) push(`ccr_output_tokens_total{${labels}} ${b.output_tokens_total}`);
+
+    push('# HELP ccr_request_duration_ms_total Sum of request durations in milliseconds');
+    push('# TYPE ccr_request_duration_ms_total counter');
+    for (const [labels, b] of Object.entries(buckets)) push(`ccr_request_duration_ms_total{${labels}} ${b.duration_ms_total}`);
+
+    push('# HELP ccr_output_tok_per_sec_avg Average output tokens per second (over requests with token data)');
+    push('# TYPE ccr_output_tok_per_sec_avg gauge');
+    for (const [labels, b] of Object.entries(buckets)) {
+      const avg = b.tok_per_sec_count > 0 ? Math.round((b.tok_per_sec_sum / b.tok_per_sec_count) * 10) / 10 : 0;
+      push(`ccr_output_tok_per_sec_avg{${labels}} ${avg}`);
+    }
+
+    push('# HELP ccr_request_duration_ms_bucket Request duration histogram in milliseconds');
+    push('# TYPE ccr_request_duration_ms_bucket histogram');
+    for (const [labels, b] of Object.entries(buckets)) {
+      for (let i = 0; i < DURATION_BOUNDS.length; i++) push(`ccr_request_duration_ms_bucket{${labels},le="${DURATION_BOUNDS[i]}"} ${b.duration_buckets[i]}`);
+      push(`ccr_request_duration_ms_bucket{${labels},le="+Inf"} ${b.duration_buckets[DURATION_BOUNDS.length]}`);
+    }
+
+    reply.header("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    reply.send(lines.join("\n") + "\n");
+  });
+
   // Helper function: Load preset from ZIP
   async function loadPresetFromZip(zipFile: string): Promise<PresetFile> {
     const zip = new AdmZip(zipFile);
