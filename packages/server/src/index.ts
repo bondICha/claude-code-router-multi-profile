@@ -191,6 +191,17 @@ async function getServer(options: RunOptions = {}) {
     initialConfig.CUSTOM_ROUTER_PATH = join(__dirname, "profileRouter.js");
   }
 
+  // DisableFallback: config.json toggle (applied on `ccr restart`). The core's
+  // fallback dispatcher (dMe) does `if (!o || !o[scenario]) return null`, so a
+  // falsy `fallback` short-circuits it and the original provider error is
+  // returned to the client immediately instead of cascading through the
+  // fallback chain. Kept as a top-level flag (rather than overwriting the
+  // `fallback` block in config.json) so the configured chains stay documented
+  // and can be re-enabled by flipping the flag back.
+  if (config.DisableFallback) {
+    initialConfig.fallback = false;
+  }
+
   const serverInstance = await createServer({
     jsonPath: CONFIG_FILE,
     initialConfig,
